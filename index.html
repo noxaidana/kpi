@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI отдела продаж</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f5f4; --card:#ffffff; --ink:#1c1917; --muted:#78716c;
+    --line:#e7e5e4; --accent:#2563eb; --green:#059669; --red:#dc2626;
+    --amber:#d97706; --soft:#faf9f8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);padding:28px;line-height:1.4}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:30px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 18px}
+  .tabs{display:flex;gap:8px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+  .tab{padding:11px 20px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:none;
+    color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .page{display:none}
+  .page.active{display:block}
+  select#monthSel{width:100%;padding:16px 18px;font-size:20px;font-weight:700;border:1px solid var(--line);
+    border-radius:14px;background:var(--card);color:var(--ink);cursor:pointer;-webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat;background-position:right 18px center}
+  .badge{display:inline-block;margin:16px 0 20px;padding:8px 16px;border-radius:10px;font-weight:700;font-size:16px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card .lbl{color:var(--muted);font-size:13px;min-height:32px}
+  .card .val{font-size:24px;font-weight:800;margin-top:8px;letter-spacing:-.5px}
+  .card input{font-size:22px;font-weight:800;width:100%;border:1px dashed var(--line);border-radius:8px;
+    padding:4px 6px;margin-top:6px;color:var(--accent);background:var(--soft)}
+  .hint{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .hint b{color:var(--ink)}
+  .note{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:14px 16px;font-size:14px;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;margin-bottom:14px}
+  th,td{padding:12px 10px;text-align:right;font-size:14px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:700;vertical-align:bottom}
+  th:first-child,td:first-child{text-align:left}
+  th:nth-child(2),td:nth-child(2){text-align:left}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--soft)}
+  tr.total td{font-weight:800;background:#eef2ff;border-top:2px solid var(--line)}
+  tr.total:hover td{background:#eef2ff}
+  td input.edit{width:110px;text-align:right;border:1px solid #cdd5e0;border-radius:8px;padding:6px 8px;
+    font-size:14px;background:#fff}
+  td input.edit:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  td input.name{width:110px;text-align:left}
+  td select.cat{border:1px solid #cdd5e0;border-radius:8px;padding:6px;font-size:13px;background:#fff}
+  .del{border:none;background:#fee2e2;color:var(--red);border-radius:8px;width:28px;height:28px;
+    cursor:pointer;font-size:16px;line-height:1}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:30px}
+  .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 16px;
+    font-size:14px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.save{background:var(--green);color:#fff;border-color:var(--green)}
+  .btn.ghost{color:var(--muted)}
+  h2{font-size:19px;margin:28px 0 14px}
+  .chart-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:26px}
+  .chart-box canvas{max-height:340px}
+  .info-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:22px}
+  .info-card ol{margin:8px 0 0;padding-left:20px}
+  .info-card li{margin-bottom:8px}
+  .grade-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .grade-wrap table{margin-bottom:0}
+  .grade-wrap caption{text-align:left;font-weight:700;padding:0 0 8px;font-size:14px}
+  .grade-wrap td,.grade-wrap th{text-align:center;padding:8px}
+  .grade-wrap th:first-child,.grade-wrap td:first-child{text-align:center}
+  /* modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;
+    align-items:center;justify-content:center;padding:20px}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;max-width:720px;width:100%;padding:24px;max-height:90vh;overflow:auto}
+  .modal h3{margin:0 0 8px}
+  .modal ol{padding-left:20px;font-size:14px;color:#333}
+  .modal textarea{width:100%;height:180px;font-family:monospace;font-size:12px;border:1px solid var(--line);
+    border-radius:10px;padding:10px;margin:12px 0;white-space:pre;overflow:auto}
+  @media(max-width:820px){
+    body{padding:14px}
+    h1{font-size:24px}
+    .sub{font-size:14px}
+    .cards{grid-template-columns:repeat(2,1fr);gap:10px}
+    .card{padding:14px}
+    .card .val{font-size:20px}
+    .grade-wrap{grid-template-columns:1fr}
+    .tabs .tab{padding:11px 14px;font-size:14px}
+    select#monthSel{font-size:18px;padding:14px}
+    /* таблицы прокручиваются вбок на телефоне */
+    .page table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+    th,td{padding:10px 8px;font-size:13px}
+    td input.edit,td input.name{width:84px}
+    .actions{gap:8px}
+    .btn{padding:10px 12px;font-size:13px}
+    .modal textarea{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>KPI отдела продаж</h1>
+  <p class="sub">Ноябрь 2025 — Декабрь 2026 · формулы считаются автоматически</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="dash">Дашборд</button>
+    <button class="tab" data-tab="info">Методика и грейды</button>
+  </div>
+
+  <!-- ===== ВКЛАДКА 1: ДАШБОРД ===== -->
+  <div class="page active" id="page-dash">
+    <div class="note">
+      <b>Как сохранить цифры для всех:</b> измените выручку/план в полях ниже → нажмите
+      <b>«💾 Экспорт для сайта»</b> → скопируйте блок и вставьте его в файл <b>index.html</b> на GitHub
+      (замените блок между метками ДАННЫЕ), сделайте commit. Через ~1 минуту новые цифры увидят все.
+      Правки в полях без экспорта видны только вам.
+    </div>
+
+    <select id="monthSel"></select>
+    <div><span class="badge" id="perfBadge"></span></div>
+
+    <div class="cards">
+      <div class="card"><div class="lbl">План (можно менять)</div><input id="cPlan" inputmode="numeric"></div>
+      <div class="card"><div class="lbl">Выручка (сумма)</div><div class="val" id="cRev"></div></div>
+      <div class="card"><div class="lbl">% выполнения</div><div class="val" id="cPerf"></div></div>
+      <div class="card"><div class="lbl">% бонуса (грейд)</div><div class="val" id="cGrade"></div></div>
+      <div class="card"><div class="lbl">Фонд бонуса</div><div class="val" id="cFund"></div></div>
+    </div>
+    <p class="hint">Впишите <b>выручку</b> каждого менеджера — доля, бонус, фонд и % выполнения пересчитаются автоматически по грейду этого месяца.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Менеджер</th><th>Категория</th><th>Выручка</th><th>% доли</th>
+          <th>Бонус</th><th>Оклад</th><th>% бонуса от выручки</th><th>Итого</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="mgrBody"></tbody>
+    </table>
+
+    <div class="actions">
+      <button class="btn primary" id="addMgr">+ Добавить менеджера</button>
+      <button class="btn save" id="exportBtn">💾 Экспорт для сайта</button>
+      <button class="btn ghost" id="resetMonth">Сбросить месяц</button>
+      <button class="btn ghost" id="resetAll">Сбросить всё</button>
+    </div>
+
+    <h2>Сводка по менеджерам (весь период)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Менеджер</th><th>Месяцев</th><th>Выручка, всего</th><th>Сред. % доли</th>
+          <th>Бонус, всего</th><th>Оклад, всего</th><th>Итого выплат</th>
+        </tr>
+      </thead>
+      <tbody id="sumBody"></tbody>
+    </table>
+
+    <h2>Динамика: план и выручка по месяцам</h2>
+    <div class="chart-box"><canvas id="chartRev"></canvas></div>
+
+    <h2>Фонд бонуса и % выполнения по месяцам</h2>
+    <div class="chart-box"><canvas id="chartBonus"></canvas></div>
+  </div>
+
+  <!-- ===== ВКЛАДКА 2: МЕТОДИКА ===== -->
+  <div class="page" id="page-info">
+    <div class="info-card">
+      <h2 style="margin-top:0">Принцип мотивационной программы</h2>
+      <ol>
+        <li>Выставляется общий план на отдел продаж.</li>
+        <li>Учёт плана — методом «по начислению»: каждое начисление фиксируется за менеджером, который ведёт сделку, по которой пришло начисление.</li>
+        <li>В зависимости от выполнения плана на отдел начисляется сумма бонуса согласно грейду.</li>
+        <li>Относительно начисленной выручки вычисляется процент доли каждого менеджера.</li>
+        <li>Общая сумма бонуса распределяется по менеджерам в том же процентном соотношении, в котором вычислена выручка каждого.</li>
+      </ol>
+    </div>
+
+    <div class="info-card">
+      <h2 style="margin-top:0">Базовый оклад</h2>
+      <table style="margin-bottom:0">
+        <thead><tr><th>Категория</th><th>Базовый оклад</th></tr></thead>
+        <tbody>
+          <tr><td>Менеджер 1 категории</td><td>100 000 ₸</td></tr>
+          <tr><td>Менеджер 2 категории</td><td>200 000 ₸</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-card">
+      <h2 style="margin-top:0">Грейд бонусной системы</h2>
+      <p class="hint">Бонус вычисляется относительно плана всего отдела и является общим на весь отдел. Со временем сетка менялась — ниже все три версии.</p>
+      <div class="grade-wrap">
+        <table>
+          <caption>Ноябрь–Декабрь 2025</caption>
+          <thead><tr><th>% выполнения</th><th>% бонуса</th></tr></thead>
+          <tbody id="gA"></tbody>
+        </table>
+        <table>
+          <caption>Январь–Февраль 2026</caption>
+          <thead><tr><th>% выполнения</th><th>% бонуса</th></tr></thead>
+          <tbody id="gB"></tbody>
+        </table>
+        <table>
+          <caption>Март 2026 и далее</caption>
+          <thead><tr><th>% выполнения</th><th>% бонуса</th></tr></thead>
+          <tbody id="gC"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- модал экспорта -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>💾 Экспорт данных для сайта</h3>
+    <ol>
+      <li>Нажмите «Скопировать».</li>
+      <li>Откройте <b>index.html</b> на GitHub → карандаш (Edit).</li>
+      <li>Найдите блок между <code>/*=НАЧАЛО ДАННЫХ=*/</code> и <code>/*=КОНЕЦ ДАННЫХ=*/</code> и замените его вставленным.</li>
+      <li>Commit changes. Через ~1 минуту сайт обновится для всех.</li>
+    </ol>
+    <textarea id="exportText" readonly></textarea>
+    <div class="actions">
+      <button class="btn primary" id="copyBtn">Скопировать</button>
+      <button class="btn ghost" id="closeBtn">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*=НАЧАЛО ДАННЫХ=*/
+const DEFAULTS = [
+ {"m":"Ноябрь 2025","plan":10000000,"grade":"A","mgr":[["Юлия","1",5522000,100000],["Садад","1",5012000,100000]]},
+ {"m":"Декабрь 2025","plan":10000000,"grade":"A","mgr":[["Юлия","1",6489000,100000],["Садад","1",3779000,100000]]},
+ {"m":"Январь 2026","plan":10000000,"grade":"B","mgr":[["Юлия","1",3000000,100000],["Садад","1",3000000,100000]]},
+ {"m":"Февраль 2026","plan":15000000,"grade":"B","mgr":[["Юлия","1",12200000,100000],["Садад","1",3919000,100000]]},
+ {"m":"Март 2026","plan":17000000,"grade":"C","mgr":[["Юлия","2",11325000,200000],["Садад","2",4441300,200000],["Виктория","1",1856500,100000],["Гулимай","1",40000,100000]]},
+ {"m":"Апрель 2026","plan":20000000,"grade":"C","mgr":[["Юлия","2",13446265,200000],["Садад","2",4020349,200000],["Виктория","1",2695000,100000],["Гулимай","1",2573590,86000]]},
+ {"m":"Май 2026","plan":23000000,"grade":"C","mgr":[["Юлия","2",14058745,200000],["Садад","2",8845350,200000],["Виктория","1",4502500,100000],["Султан","2",669650,86364]]},
+ {"m":"Июнь 2026","plan":30000000,"grade":"C","mgr":[["Юлия","2",15271575,200000],["Садад","2",5234650,200000],["Виктория","1",5984450,100000],["Шугыла","1",125000,45454]]},
+ {"m":"Июль 2026","plan":30000000,"grade":"C","mgr":[["Юлия","2",5264500,200000],["Садад","2",660000,200000],["Виктория","1",1246100,100000],["Шугыла","1",1082000,100000]]},
+ {"m":"Август 2026","plan":0,"grade":"C","mgr":[["Юлия","2",0,200000],["Садад","2",0,200000],["Виктория","1",0,100000],["Шугыла","1",0,100000]]},
+ {"m":"Сентябрь 2026","plan":0,"grade":"C","mgr":[["Юлия","2",0,200000],["Садад","2",0,200000],["Виктория","1",0,100000],["Шугыла","1",0,100000]]},
+ {"m":"Октябрь 2026","plan":0,"grade":"C","mgr":[["Юлия","2",0,200000],["Садад","2",0,200000],["Виктория","1",0,100000],["Шугыла","1",0,100000]]},
+ {"m":"Ноябрь 2026","plan":0,"grade":"C","mgr":[["Юлия","2",0,200000],["Садад","2",0,200000],["Виктория","1",0,100000],["Шугыла","1",0,100000]]},
+ {"m":"Декабрь 2026","plan":0,"grade":"C","mgr":[["Юлия","2",0,200000],["Садад","2",0,200000],["Виктория","1",0,100000],["Шугыла","1",0,100000]]}
+];
+/*=КОНЕЦ ДАННЫХ=*/
+
+// Таблицы грейда: нижняя граница % выполнения -> % бонуса
+const GRADES = {
+  A:[[0,5],[80,6],[90,8],[100,9],[110,10],[115,12],[120,13]],
+  B:[[0,2],[80,5],[90,6],[100,8],[110,9],[115,10],[120,12]],
+  C:[[0,0],[80,5],[90,6],[100,8],[110,9],[115,10],[120,12]],
+};
+const GRADE_ROWS=["0% – 79,9%","80% – 89,9%","90% – 99,9%","100% – 109,9%","110% – 114,9%","115% – 119,9%","120%+"];
+function gradePct(id, perf){
+  const t=GRADES[id]; let g=t[0][1];
+  for(const [lo,v] of t){ if(perf>=lo) g=v; }
+  return g;
+}
+
+const KEY="kpiSite_v1";
+function reconcile(saved){
+  return DEFAULTS.map(def=>{
+    const s = saved && saved.find(x=>x.m===def.m);
+    return s ? s : JSON.parse(JSON.stringify(def));
+  });
+}
+function load(){
+  try{ const s=localStorage.getItem(KEY); if(s) return reconcile(JSON.parse(s)); }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DATA)); }catch(e){} }
+let DATA = load();
+
+const T = n => new Intl.NumberFormat("ru-RU").format(Math.round(n||0));
+const money = n => T(n) + " ₸";
+const pct = n => (n||0).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%";
+const parseNum = s => Number(String(s).replace(/[^\d.-]/g,""))||0;
+
+function calc(d){
+  const rev = d.mgr.reduce((s,m)=>s+(+m[2]||0),0);
+  const perf = d.plan? rev/d.plan*100 : 0;
+  const grade = gradePct(d.grade, perf);
+  const fund = Math.round(rev*grade/100);
+  return {rev,perf,grade,fund};
+}
+
+// вкладки
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById("page-"+t.dataset.tab).classList.add("active");
+  });
+});
+["A","B","C"].forEach(id=>{
+  const body=document.getElementById("g"+id);
+  GRADES[id].forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${GRADE_ROWS[i]}</td><td>${r[1].toLocaleString("ru-RU",{minimumFractionDigits:2})}%</td>`;
+    body.appendChild(tr);
+  });
+});
+
+const sel=document.getElementById("monthSel");
+DEFAULTS.forEach((d,i)=>{const o=document.createElement("option");o.value=i;o.textContent=d.m;sel.appendChild(o);});
+let cur=DATA.length-1; sel.value=cur;
+
+function renderMonth(){
+  const d=DATA[cur];
+  const {rev,perf,grade,fund}=calc(d);
+  const badge=document.getElementById("perfBadge");
+  badge.textContent="Выполнение "+pct(perf);
+  const good=perf>=100, mid=perf>=80;
+  badge.style.background=good?"#dcfce7":mid?"#fef3c7":"#fee2e2";
+  badge.style.color=good?"var(--green)":mid?"var(--amber)":"var(--red)";
+  document.getElementById("cPlan").value=d.plan;
+  document.getElementById("cRev").textContent=money(rev);
+  document.getElementById("cPerf").textContent=pct(perf);
+  document.getElementById("cGrade").textContent=pct(grade);
+  document.getElementById("cFund").textContent=money(fund);
+
+  const body=document.getElementById("mgrBody"); body.innerHTML="";
+  let sRev=0,sBon=0,sSal=0,sTot=0;
+  d.mgr.forEach((m,idx)=>{
+    const [name,cat,mrev,sal]=m;
+    const share=rev?mrev/rev*100:0;
+    const bonus=rev?fund*mrev/rev:0;
+    const pctBonRev=rev?bonus/rev*100:0;
+    const total=(+sal||0)+bonus;
+    sRev+=(+mrev||0); sBon+=bonus; sSal+=(+sal||0); sTot+=total;
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      `<td><input class="edit name" data-i="${idx}" data-f="0" value="${name}"></td>`+
+      `<td><select class="cat" data-i="${idx}" data-f="1">`+
+        `<option value="1"${cat==="1"?" selected":""}>1 кат.</option>`+
+        `<option value="2"${cat==="2"?" selected":""}>2 кат.</option></select></td>`+
+      `<td><input class="edit" inputmode="numeric" data-i="${idx}" data-f="2" value="${mrev}"></td>`+
+      `<td>${pct(share)}</td>`+
+      `<td>${money(bonus)}</td>`+
+      `<td><input class="edit" inputmode="numeric" data-i="${idx}" data-f="3" value="${sal}"></td>`+
+      `<td>${pct(pctBonRev)}</td><td>${money(total)}</td>`+
+      `<td><button class="del" data-del="${idx}">×</button></td>`;
+    body.appendChild(tr);
+  });
+  const tr=document.createElement("tr"); tr.className="total";
+  tr.innerHTML=
+    `<td>ИТОГО</td><td></td><td>${money(sRev)}</td><td>${pct(rev?100:0)}</td>`+
+    `<td>${money(sBon)}</td><td>${money(sSal)}</td><td>${pct(rev?grade:0)}</td><td>${money(sTot)}</td><td></td>`;
+  body.appendChild(tr);
+
+  renderSummary();
+  updateCharts();
+}
+
+document.getElementById("mgrBody").addEventListener("change", e=>{
+  const el=e.target;
+  if(el.dataset.i!==undefined){
+    const i=+el.dataset.i, f=+el.dataset.f;
+    DATA[cur].mgr[i][f]=(f===0||f===1)?el.value:parseNum(el.value);
+    save(); renderMonth();
+  }
+});
+document.getElementById("mgrBody").addEventListener("click", e=>{
+  if(e.target.dataset.del!==undefined){ DATA[cur].mgr.splice(+e.target.dataset.del,1); save(); renderMonth(); }
+});
+document.getElementById("cPlan").addEventListener("change", e=>{ DATA[cur].plan=parseNum(e.target.value); save(); renderMonth(); });
+document.getElementById("addMgr").addEventListener("click", ()=>{ DATA[cur].mgr.push(["Новый","1",0,100000]); save(); renderMonth(); });
+document.getElementById("resetMonth").addEventListener("click", ()=>{ DATA[cur]=JSON.parse(JSON.stringify(DEFAULTS[cur])); save(); renderMonth(); });
+document.getElementById("resetAll").addEventListener("click", ()=>{ if(confirm("Сбросить все месяцы к цифрам сайта?")){ DATA=JSON.parse(JSON.stringify(DEFAULTS)); save(); renderMonth(); } });
+sel.addEventListener("change", e=>{ cur=+e.target.value; renderMonth(); });
+
+// экспорт
+const overlay=document.getElementById("overlay");
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const rows=DATA.map(d=>" "+JSON.stringify(d)).join(",\n");
+  document.getElementById("exportText").value="const DEFAULTS = [\n"+rows+"\n];";
+  overlay.classList.add("open");
+});
+document.getElementById("closeBtn").addEventListener("click", ()=>overlay.classList.remove("open"));
+overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.classList.remove("open"); });
+document.getElementById("copyBtn").addEventListener("click", ()=>{
+  const ta=document.getElementById("exportText"); ta.select();
+  navigator.clipboard.writeText(ta.value).then(()=>{ document.getElementById("copyBtn").textContent="Скопировано ✓"; },()=>{ document.execCommand("copy"); });
+});
+
+function renderSummary(){
+  const agg={};
+  DATA.forEach(d=>{
+    const {rev,fund}=calc(d);
+    d.mgr.forEach(([name,cat,mrev,sal])=>{
+      const bonus=rev?fund*mrev/rev:0, share=rev?mrev/rev*100:0;
+      const hasRev=(+mrev||0)>0;
+      if(!agg[name]) agg[name]={months:0,rev:0,bonus:0,sal:0,shareSum:0};
+      const a=agg[name];
+      if(hasRev){ a.months++; a.sal+=(+sal||0); }
+      a.rev+=(+mrev||0); a.bonus+=bonus; a.shareSum+=share;
+    });
+  });
+  const rows=Object.entries(agg).sort((a,b)=>b[1].rev-a[1].rev);
+  const body=document.getElementById("sumBody"); body.innerHTML="";
+  let tR=0,tB=0,tS=0;
+  rows.forEach(([name,a])=>{
+    tR+=a.rev; tB+=a.bonus; tS+=a.sal;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${name}</td><td>${a.months}</td><td>${money(a.rev)}</td>`+
+      `<td>${pct(a.months?a.shareSum/a.months:0)}</td><td>${money(a.bonus)}</td>`+
+      `<td>${money(a.sal)}</td><td>${money(a.bonus+a.sal)}</td>`;
+    body.appendChild(tr);
+  });
+  const tr=document.createElement("tr"); tr.className="total";
+  tr.innerHTML=`<td>ИТОГО</td><td></td><td>${money(tR)}</td><td></td>`+
+    `<td>${money(tB)}</td><td>${money(tS)}</td><td>${money(tB+tS)}</td>`;
+  body.appendChild(tr);
+}
+
+const labels=DEFAULTS.map(d=>d.m.replace(" 20"," '"));
+let revChart,bonusChart;
+function updateCharts(){
+  const plans=DATA.map(d=>d.plan);
+  const revs=DATA.map(d=>calc(d).rev);
+  const funds=DATA.map(d=>calc(d).fund);
+  const perfs=DATA.map(d=>+calc(d).perf.toFixed(2));
+  if(!revChart){
+    revChart=new Chart(document.getElementById("chartRev"),{
+      type:"bar",
+      data:{labels,datasets:[
+        {label:"План",data:plans,backgroundColor:"#cbd5e1"},
+        {label:"Выручка",data:revs,backgroundColor:"#2563eb"}]},
+      options:{responsive:true,plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+": "+money(c.parsed.y)}}},
+        scales:{y:{ticks:{callback:v=>(v/1e6)+" млн"}}}}
+    });
+    bonusChart=new Chart(document.getElementById("chartBonus"),{
+      data:{labels,datasets:[
+        {type:"bar",label:"Фонд бонуса",data:funds,backgroundColor:"#059669",yAxisID:"y"},
+        {type:"line",label:"% выполнения",data:perfs,borderColor:"#dc2626",
+         backgroundColor:"#dc2626",tension:.3,yAxisID:"y1"}]},
+      options:{responsive:true,
+        plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+": "+(c.dataset.yAxisID==="y1"?pct(c.parsed.y):money(c.parsed.y))}}},
+        scales:{y:{position:"left",ticks:{callback:v=>(v/1e6)+" млн"}},
+          y1:{position:"right",grid:{drawOnChartArea:false},ticks:{callback:v=>v+"%"}}}}
+    });
+  } else {
+    revChart.data.datasets[0].data=plans; revChart.data.datasets[1].data=revs; revChart.update();
+    bonusChart.data.datasets[0].data=funds; bonusChart.data.datasets[1].data=perfs; bonusChart.update();
+  }
+}
+
+renderMonth();
+</script>
+</body>
+</html>
