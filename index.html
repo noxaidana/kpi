@@ -241,7 +241,7 @@ document.querySelectorAll(".tab").forEach(t=>{t.addEventListener("click",()=>{
 
 const sel=document.getElementById("monthSel");
 DEFAULTS.forEach((d,i)=>{const o=document.createElement("option");o.value=i;o.textContent=d.m;sel.appendChild(o);});
-let cur=DEFAULTS.length-1; sel.value=cur;
+let cur=DEFAULTS.findIndex(d=>d.m==="Июль 2026"); if(cur<0)cur=DEFAULTS.length-1; sel.value=cur;
 
 function renderMonth(){
   const d=DATA[cur];const{rev,perf,grade,fund}=calc(d);
